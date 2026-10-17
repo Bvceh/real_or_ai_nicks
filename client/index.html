@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Реальный или ИИ?</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0e0e12;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #f0f0f5;
+    padding: 20px;
+  }
+
+  .container { width: 100%; max-width: 460px; }
+
+  .screen[hidden] { display: none; }
+  .screen { animation: appear .18s ease; }
+  @keyframes appear { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* Language switch */
+  .lang-switch {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    gap: 6px;
+    z-index: 100;
+  }
+  .lang-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    border-radius: 8px;
+    background: #16161d;
+    border: 1px solid #24242f;
+    color: #6c6c7a;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .lang-btn:hover { color: #f0f0f5; }
+  .lang-btn.active {
+    color: #cfc6ff;
+    border-color: #6a5cff;
+    background: rgba(122, 90, 255, .14);
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: #f0f0f5;
+    background: #1c1c25;
+    border: 1px solid #2a2a36;
+    border-radius: 14px;
+    padding: 18px 12px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .1s, opacity .15s, filter .15s;
+  }
+  button:hover:not(:disabled) { background: #24242f; border-color: #3a3a4a; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+
+  button.primary { background: linear-gradient(180deg, #6a5cff, #5546e0); border-color: transparent; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+
+  .menu { text-align: center; padding: 30px 0; }
+  .menu h1 { font-size: clamp(28px, 8vw, 38px); font-weight: 700; letter-spacing: -.5px; margin-bottom: 10px; }
+  .menu .subtitle { color: #6c6c7a; font-size: 15px; margin-bottom: 40px; }
+  .menu-buttons { display: grid; gap: 12px; }
+  .status { min-height: 18px; margin-top: 18px; font-size: 13px; line-height: 1.4; color: #e74c3c; }
+
+  .screen-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 30px; }
+  .setting { margin-bottom: 26px; }
+  .setting-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: #5c5c6b; margin-bottom: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 10px;
+    background: #16161d;
+    border: 1px solid #24242f;
+    color: #8b8b99;
+  }
+  .chip:hover:not(:disabled) { border-color: #3a3a4a; color: #f0f0f5; background: #1a1a22; }
+  .chip.active { background: rgba(122, 90, 255, .14); border-color: #6a5cff; color: #cfc6ff; }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #6c6c7a;
+    margin-bottom: 24px;
+    letter-spacing: .5px;
+  }
+  .header strong { color: #f0f0f5; font-weight: 600; }
+
+  .card {
+    position: relative;
+    overflow: hidden;
+    background: #16161d;
+    border: 1px solid #24242f;
+    border-radius: 20px;
+    padding: 56px 24px;
+    margin-bottom: 20px;
+    transition: border-color .3s;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(120, 90, 255, .12), transparent 70%);
+    pointer-events: none;
+    transition: background .3s;
+  }
+  .card.correct { border-color: #2ecc71; }
+  .card.correct::before { background: radial-gradient(circle at 50% 0%, rgba(46, 204, 113, .2), transparent 70%); }
+  .card.wrong { border-color: #e74c3c; }
+  .card.wrong::before { background: radial-gradient(circle at 50% 0%, rgba(231, 76, 60, .2), transparent 70%); }
+
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #5c5c6b; margin-bottom: 18px; }
+  .nickname {
+    font-size: clamp(26px, 7vw, 40px);
+    font-weight: 700;
+    letter-spacing: -.5px;
+    word-break: break-word;
+    background: linear-gradient(180deg, #ffffff, #b8b8c8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .verdict { height: 22px; margin-bottom: 2px; font-size: 14px; font-weight: 600; opacity: 0; transition: opacity .2s; }
+  .verdict.show { opacity: 1; }
+  .verdict.good { color: #2ecc71; }
+  .verdict.bad { color: #e74c3c; }
+
+  .details { min-height: 18px; margin-bottom: 14px; font-size: 12.5px; color: #7a7a8a; font-variant-numeric: tabular-nums; }
+
+  .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .restart { width: 100%; margin-top: 12px; }
+  .ghost { background: transparent; border-color: #24242f; color: #8b8b99; }
+  .ghost:hover:not(:disabled) { background: #16161d; color: #f0f0f5; }
+
+  .quit { width: 100%; margin-top: 12px; padding: 12px; font-size: 13.5px; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="lang-switch">
+  <button class="lang-btn" data-lang="ru">RU</button>
+  <button class="lang-btn" data-lang="en">EN</button>
+</div>
+
+<div class="container">
+
+  <div class="screen" id="screen-menu">
+    <div class="menu">
+      <h1 data-i18n="title">Реальный или ИИ?</h1>
+      <p class="subtitle" data-i18n="subtitle">Угадай, кто скрывается за ником</p>
+      <div class="menu-buttons">
+        <button class="primary" id="btnPlay" data-i18n="play">Играть</button>
+        <button id="btnSettings" data-i18n="settings">Настройки</button>
+      </div>
+      <div class="status" id="menuStatus"></div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-settings" hidden>
+    <div class="screen-title" data-i18n="settings">Настройки</div>
+
+    <div class="setting">
+      <div class="setting-label" data-i18n="tempLabel">Температура генерации</div>
+      <div class="chips" id="tempChips"></div>
+    </div>
+
+    <div class="setting">
+      <div class="setting-label" data-i18n="roundLabel">Количество раундов</div>
+      <div class="chips" id="roundChips"></div>
+    </div>
+
+    <button id="btnBack" data-i18n="back" style="width:100%">Назад</button>
+  </div>
+
+  <div class="screen" id="screen-game" hidden>
+    <div class="header">
+      <span><span data-i18n="score">Счёт</span>: <strong id="score">0</strong></span>
+      <span><span data-i18n="left">Осталось</span>: <strong id="left">0</strong></span>
+    </div>
+
+    <div class="card" id="card">
+      <div class="label" id="cardLabel">Этот ник...</div>
+      <div class="nickname" id="nickname">...</div>
+    </div>
+
+    <div class="verdict" id="verdict"></div>
+    <div class="details" id="details"></div>
+
+    <div class="buttons" id="buttons">
+      <button id="btnReal" data-i18n="btnReal">👤 Реальный</button>
+      <button id="btnAI" data-i18n="btnAI">🤖 Сгенерирован</button>
+    </div>
+
+    <button class="restart ghost quit" id="btnQuit" data-i18n="quit" style="display:none;">Завершить игру</button>
+
+    <button class="restart" id="btnRestart" data-i18n="restart" style="display:none;">Играть снова</button>
+    <button class="restart ghost" id="btnToMenu" data-i18n="toMenu" style="display:none;">В меню</button>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const TEMPS = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0'];
+  const ROUND_OPTIONS = [5, 10, 20];
+
+  const I18N = {
+    ru: {
+      title: 'Реальный или ИИ?',
+      subtitle: 'Угадай, кто скрывается за ником',
+      play: 'Играть',
+      settings: 'Настройки',
+      back: 'Назад',
+      score: 'Счёт',
+      left: 'Осталось',
+      cardLabel: 'Этот ник...',
+      btnReal: '👤 Реальный',
+      btnAI: '🤖 Сгенерирован',
+      quit: 'Завершить игру',
+      restart: 'Играть снова',
+      toMenu: 'В меню',
+      tempLabel: 'Температура генерации',
+      roundLabel: 'Количество раундов',
+      loading: 'Загрузка…',
+      loadError: 'Не удалось загрузить файлы.',
+      noReal: 'В players.csv нет ников',
+      noAI: 'Нет ников ИИ для выбранных температур',
+      correct: '✓ Верно!',
+      wrongReal: '✗ Это реальный игрок',
+      wrongAI: '✗ Это сгенерировано ИИ',
+      aiTemp: 'Сгенерировано ИИ · T = {t}',
+      gameOver: 'Игра завершена',
+      result: 'Результат',
+      noRounds: 'Раунды не сыграны',
+      perfect: 'Идеально! 🎉',
+      great: 'Отличный результат!',
+      notBad: 'Неплохо!',
+      fooled: 'ИИ обманул тебя 🥲',
+    },
+    en: {
+      title: 'Real or AI?',
+      subtitle: 'Guess who is behind the nickname',
+      play: 'Play',
+      settings: 'Settings',
+      back: 'Back',
+      score: 'Score',
+      left: 'Left',
+      cardLabel: 'This nickname...',
+      btnReal: '👤 Real',
+      btnAI: '🤖 Generated',
+      quit: 'End game',
+      restart: 'Play again',
+      toMenu: 'Menu',
+      tempLabel: 'Generation temperature',
+      roundLabel: 'Number of rounds',
+      loading: 'Loading…',
+      loadError: 'Failed to load files.',
+      noReal: 'No nicknames in players.csv',
+      noAI: 'No AI nicknames for the selected temperatures',
+      correct: '✓ Correct!',
+      wrongReal: '✗ This is a real player',
+      wrongAI: '✗ This is AI generated',
+      aiTemp: 'AI generated · T = {t}',
+      gameOver: 'Game over',
+      result: 'Result',
+      noRounds: 'No rounds played',
+      perfect: 'Perfect! 🎉',
+      great: 'Great result!',
+      notBad: 'Not bad!',
+      fooled: 'AI fooled you 🥲',
+    },
+  };
+
+  let lang = (navigator.language || 'ru').toLowerCase().startsWith('en') ? 'en' : 'ru';
+
+  function t(key, vars) {
+    let s = (I18N[lang] && I18N[lang][key]) || key;
+    if (vars) for (const k in vars) s = s.replace(`{${k}}`, vars[k]);
+    return s;
+  }
+
+  const settings = { temps: new Set(TEMPS), rounds: 10 };
+
+  const $ = id => document.getElementById(id);
+  const screens = {
+    menu: $('screen-menu'),
+    settings: $('screen-settings'),
+    game: $('screen-game'),
+  };
+
+  let realCache = null;
+  const aiCache = {};
+
+  let lastData = null;
+  let queue = [], total = 0, left = 0, score = 0;
+  let current = null, busy = false, timer = null;
+
+  // State for re-rendering on language change
+  let phase = 'idle';           // 'idle' | 'playing' | 'answered' | 'ended'
+  let lastResult = null;        // { correct, real, temp, time, server }
+  let endedEarly = false;
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function formatTime(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ` +
+           `${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
+  }
+
+  function showScreen(name) {
+    for (const [key, el] of Object.entries(screens)) el.hidden = key !== name;
+  }
+
+  async function fetchText(url) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Не удалось загрузить ${url}`);
+    return res.text();
+  }
+
+  function parsePlayers(text) {
+    const list = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      const parts = line.split(',');
+      if (parts.length < 3) continue;
+      const server = parts[parts.length - 1].trim();
+      const time   = parts[parts.length - 2].trim();
+      const nick   = parts.slice(0, -2).join(',').trim();
+      if (!nick || nick.toLowerCase() === 'nickname') continue;
+      list.push({ nick, time, server, real: true });
+    }
+    return list;
+  }
+
+  async function loadReal() {
+    if (!realCache) {
+      const text = await fetchText('players.csv');
+      realCache = parsePlayers(text);
+    }
+    return realCache;
+  }
+
+  async function loadAI(temp) {
+    if (!aiCache[temp]) {
+      let text = '';
+      try { text = await fetchText(`temp_${temp}.txt`); } catch { text = ''; }
+      aiCache[temp] = text.split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(nick => ({ nick, real: false, temp }));
+    }
+    return aiCache[temp];
+  }
+
+  async function prepareGame() {
+    const real = await loadReal();
+    const lists = await Promise.all([...settings.temps].map(loadAI));
+    return { real, ai: lists.flat() };
+  }
+
+  /* ---------- Language handling ---------- */
+
+  function applyLanguage() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      el.textContent = t(key);
+    });
+    document.querySelectorAll('.lang-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+    rerender();
+  }
+
+  function rerender() {
+    if (phase === 'playing') {
+      $('cardLabel').textContent = t('cardLabel');
+    } else if (phase === 'answered' && lastResult) {
+      $('cardLabel').textContent = t('cardLabel');
+      renderAnswer();
+    } else if (phase === 'ended') {
+      renderEnd();
+    }
+  }
+
+  function renderAnswer() {
+    if (!lastResult) return;
+    const { correct, real, temp, time, server } = lastResult;
+    const verdict = $('verdict');
+    if (correct) {
+      verdict.textContent = t('correct');
+      verdict.className = 'verdict show good';
+    } else {
+      verdict.textContent = real ? t('wrongReal') : t('wrongAI');
+      verdict.className = 'verdict show bad';
+    }
+    $('details').textContent = real
+      ? `${formatTime(time)} · ${server}`
+      : t('aiTemp', { t: temp });
+  }
+
+  function renderEnd() {
+    const played = total - left;
+    const pct = played ? score / played : 0;
+    $('cardLabel').textContent = endedEarly ? t('gameOver') : t('result');
+    $('nickname').textContent = `${score} / ${played}`;
+    const verdict = $('verdict');
+    verdict.textContent =
+      played === 0 ? t('noRounds') :
+      pct === 1    ? t('perfect') :
+      pct >= 0.7   ? t('great') :
+      pct >= 0.4   ? t('notBad') :
+                     t('fooled');
+    verdict.className = 'verdict show ' + (played > 0 && pct >= 0.4 ? 'good' : 'bad');
+    $('details').textContent = '';
+  }
+
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.lang === lang) return;
+      lang = btn.dataset.lang;
+      applyLanguage();
+    });
+  });
+
+  /* ---------- Screens & buttons ---------- */
+
+  $('btnPlay').addEventListener('click', play);
+  $('btnSettings').addEventListener('click', () => {
+    buildTempChips();
+    buildRoundChips();
+    showScreen('settings');
+  });
+  $('btnBack').addEventListener('click', () => showScreen('menu'));
+
+  async function play() {
+    const status = $('menuStatus');
+    const btn = $('btnPlay');
+    status.textContent = '';
+    btn.disabled = true;
+    btn.textContent = t('loading');
+
+    try {
+      const data = await prepareGame();
+      if (!data.real.length) throw new Error('noReal');
+      if (!data.ai.length)   throw new Error('noAI');
+      lastData = data;
+      startGame(data);
+    } catch (e) {
+      if (e instanceof TypeError) {
+        status.textContent = t('loadError');
+      } else if (I18N[lang][e.message]) {
+        status.textContent = t(e.message);
+      } else {
+        status.textContent = e.message;
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = t('play');
+    }
+  }
+
+  function buildTempChips() {
+    const wrap = $('tempChips');
+    wrap.innerHTML = '';
+    for (const t of TEMPS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (settings.temps.has(t) ? ' active' : '');
+      b.textContent = t;
+      b.addEventListener('click', () => {
+        if (settings.temps.has(t)) {
+          if (settings.temps.size === 1) return;
+          settings.temps.delete(t);
+        } else {
+          settings.temps.add(t);
+        }
+        b.classList.toggle('active', settings.temps.has(t));
+      });
+      wrap.appendChild(b);
+    }
+  }
+
+  function buildRoundChips() {
+    const wrap = $('roundChips');
+    wrap.innerHTML = '';
+    for (const r of ROUND_OPTIONS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (settings.rounds === r ? ' active' : '');
+      b.textContent = r;
+      b.addEventListener('click', () => {
+        settings.rounds = r;
+        [...wrap.children].forEach(c => c.classList.toggle('active', c === b));
+      });
+      wrap.appendChild(b);
+    }
+  }
+
+  function startGame({ real, ai }) {
+    clearTimeout(timer);
+
+    queue   = buildQueue(real, ai, settings.rounds);
+    total   = queue.length;
+    left    = total;
+    score   = 0;
+    current = null;
+    busy    = false;
+    lastResult = null;
+    endedEarly = false;
+
+    $('score').textContent = '0';
+    $('left').textContent  = String(left);
+    $('cardLabel').textContent = t('cardLabel');
+    $('card').classList.remove('correct', 'wrong');
+    $('verdict').className = 'verdict';
+    $('verdict').textContent = '';
+    $('details').textContent = '';
+    $('btnRestart').style.display = 'none';
+    $('btnToMenu').style.display  = 'none';
+    $('btnQuit').style.display    = 'block';
+    $('btnReal').disabled = false;
+    $('btnAI').disabled   = false;
+
+    showScreen('game');
+    nextRound();
+  }
+
+  function buildQueue(real, ai, rounds) {
+    const r = shuffle(real);
+    const a = shuffle(ai);
+    const out = [];
+    let ri = 0, ai_i = 0;
+    let wantReal = Math.random() < 0.5;
+
+    while (out.length < rounds && (ri < r.length || ai_i < a.length)) {
+      const canReal = ri < r.length;
+      const canAI   = ai_i < a.length;
+      if ((wantReal && canReal) || !canAI) out.push(r[ri++]);
+      else out.push(a[ai_i++]);
+      wantReal = !wantReal;
+    }
+    return out;
+  }
+
+  function nextRound() {
+    if (!queue.length) { endGame(false); return; }
+
+    current = queue.shift();
+    lastResult = null;
+    phase = 'playing';
+    $('nickname').textContent = current.nick;
+    $('card').classList.remove('correct', 'wrong');
+    $('verdict').className = 'verdict';
+    $('verdict').textContent = '';
+    $('details').textContent = '';
+    $('btnReal').disabled = false;
+    $('btnAI').disabled   = false;
+    busy = false;
+  }
+
+  function answer(guessReal) {
+    if (busy || !current) return;
+    busy = true;
+    $('btnReal').disabled = true;
+    $('btnAI').disabled   = true;
+
+    const correct = guessReal === current.real;
+    const card    = $('card');
+
+    if (correct) {
+      score++;
+      $('score').textContent = String(score);
+      card.classList.add('correct');
+    } else {
+      card.classList.add('wrong');
+    }
+
+    lastResult = {
+      correct,
+      real: current.real,
+      temp: current.temp,
+      time: current.time,
+      server: current.server,
+    };
+    phase = 'answered';
+    renderAnswer();
+
+    left = Math.max(0, left - 1);
+    $('left').textContent = String(left);
+
+    timer = setTimeout(() => nextRound(), 1700);
+  }
+
+  function endGame(earlyExit) {
+    clearTimeout(timer);
+    current = null;
+    phase = 'ended';
+    endedEarly = !!earlyExit;
+
+    $('card').classList.remove('correct', 'wrong');
+    $('btnReal').disabled = true;
+    $('btnAI').disabled   = true;
+    $('btnQuit').style.display    = 'none';
+    $('btnRestart').style.display = 'block';
+    $('btnToMenu').style.display  = 'block';
+
+    renderEnd();
+  }
+
+  $('btnReal').addEventListener('click', () => answer(true));
+  $('btnAI').addEventListener('click',   () => answer(false));
+  $('btnQuit').addEventListener('click', () => endGame(true));
+  $('btnRestart').addEventListener('click', () => { if (lastData) startGame(lastData); });
+  $('btnToMenu').addEventListener('click',  () => {
+    clearTimeout(timer);
+    phase = 'idle';
+    showScreen('menu');
+  });
+
+  buildTempChips();
+  buildRoundChips();
+  applyLanguage();
+  showScreen('menu');
+})();
+</script>
+</body>
+</html>
