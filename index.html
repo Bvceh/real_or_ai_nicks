@@ -222,6 +222,8 @@
 (() => {
   'use strict';
 
+  const DATA_DIR = 'client/';
+
   const TEMPS = ['0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0'];
   const ROUND_OPTIONS = [5, 10, 20];
 
@@ -351,7 +353,8 @@
   function parsePlayers(text) {
     const list = [];
     for (const raw of text.split(/\r?\n/)) {
-      const line = raw.trim();
+      // Убираем BOM и пробелы
+      const line = raw.replace(/^\uFEFF/, '').trim();
       if (!line) continue;
       const parts = line.split(',');
       if (parts.length < 3) continue;
@@ -366,7 +369,7 @@
 
   async function loadReal() {
     if (!realCache) {
-      const text = await fetchText('players.csv');
+      const text = await fetchText(DATA_DIR + 'players.csv');
       realCache = parsePlayers(text);
     }
     return realCache;
@@ -375,7 +378,12 @@
   async function loadAI(temp) {
     if (!aiCache[temp]) {
       let text = '';
-      try { text = await fetchText(`temp_${temp}.txt`); } catch { text = ''; }
+      try {
+        text = await fetchText(`${DATA_DIR}temp_${temp}.txt`);
+      } catch (e) {
+        console.warn('[AI load failed]', `${DATA_DIR}temp_${temp}.txt`, e);
+        text = '';
+      }
       aiCache[temp] = text.split(/\r?\n/)
         .map(s => s.trim())
         .filter(Boolean)
