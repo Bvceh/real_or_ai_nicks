@@ -569,18 +569,19 @@
   function buildQueue(real, ai, rounds) {
     const r = shuffle(real);
     const a = shuffle(ai);
-    const out = [];
-    let ri = 0, ai_i = 0;
-    let wantReal = Math.random() < 0.5;
 
-    while (out.length < rounds && (ri < r.length || ai_i < a.length)) {
-      const canReal = ri < r.length;
-      const canAI   = ai_i < a.length;
-      if ((wantReal && canReal) || !canAI) out.push(r[ri++]);
-      else out.push(a[ai_i++]);
-      wantReal = !wantReal;
-    }
-    return out;
+    // Сколько раундов реально сможем набрать
+    const total = Math.min(rounds, r.length + a.length);
+
+    // Примерно половина реальных, но не больше, чем есть
+    let wantReal = Math.min(Math.round(total / 2), r.length);
+    wantReal = Math.max(wantReal, total - a.length); // добираем ИИ, если реальных мало
+    const wantAI = total - wantReal;
+
+    return shuffle([
+      ...r.slice(0, wantReal),
+      ...a.slice(0, wantAI),
+    ]);
   }
 
   function nextRound() {
